@@ -8,7 +8,7 @@ import json
 # endian value of 0x02 means big-endian byte order (version two of keytab)
 # Format pulled from https://www.h5l.org/manual/HEAD/krb5/krb5_fileformats.html
 def usage():
-    print("Usage: python2.7 parse_keytab /path/to/keytab")
+    print("Usage: python2.7 KeytabParser.py /path/to/keytab")
 
 def get_bytes_number(keytab, index, number, version):
     if version == 1:
