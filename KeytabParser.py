@@ -5,6 +5,7 @@ import binascii
 import sys
 import time
 import json
+import base64
 # endian value of 0x01 means native byte order (version one of keytab)
 # endian value of 0x02 means big-endian byte order (version two of keytab)
 # Format pulled from https://www.h5l.org/manual/HEAD/krb5/krb5_fileformats.html
@@ -28,7 +29,7 @@ def get_bytes_string(keytab, index, number):
 def get_bytes_key(keytab, index, number):
     if (number*2) + index >= len(keytab):
         return 0
-    return keytab[index:(number*2)+index]
+    return base64.b64encode(bytearray.fromhex(keytab[index:(number*2)+index])).decode('utf-8')
 
 enc_types = {
     23: "rc4-hmac",
