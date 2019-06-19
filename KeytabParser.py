@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Author Cody Thomas, @its_a_feature_
 # May 21, 2019
 import binascii
@@ -8,18 +9,25 @@ import json
 # endian value of 0x02 means big-endian byte order (version two of keytab)
 # Format pulled from https://www.h5l.org/manual/HEAD/krb5/krb5_fileformats.html
 def usage():
-    print("Usage: python2.7 KeytabParser.py /path/to/keytab")
+    print("Usage: python2.7 keytab_extract /path/to/keytab")
 
 def get_bytes_number(keytab, index, number, version):
+    if (number*2) + index >= len(keytab):
+        return 0
     if version == 1:
+        #print(''.join(keytab[index:(number*2) + index])[::-2])
         return int(''.join(keytab[index:(number*2) + index])[::-2], 16)
     if version == 2:
         return int(keytab[index:(number*2) + index], 16)
 
 def get_bytes_string(keytab, index, number):
-    return bytearray.fromhex(keytab[index:(number*2)+index]).decode('utf-8')
+    if (number*2) + index >= len(keytab):
+        return str(0)
+    return str(bytearray.fromhex(keytab[index:(number*2)+index]))
 
 def get_bytes_key(keytab, index, number):
+    if (number*2) + index >= len(keytab):
+        return 0
     return keytab[index:(number*2)+index]
 
 enc_types = {
@@ -35,7 +43,7 @@ name_types = {
 }
 
 
-def parse_keytab(keytab):
+def extract_keys(keytab):
     #print(keytab)
     #keytab metadata
     i = 0
@@ -55,6 +63,7 @@ def parse_keytab(keytab):
     #int32_t size of entry
     entry_length = get_bytes_number(keytab, index=i, number=4, version=version)
     #print("entry_length: {}".format(str(entry_length)))
+    #print("entry: {}".format(keytab[i: i + (entry_length*2) ]))
     i += 8
     # iterate through entries
     while entry_length != 0:
@@ -63,8 +72,13 @@ def parse_keytab(keytab):
                 start_value = i  # start of this entry
                 #uint16_t num_components
                 num_components = get_bytes_number(keytab, index=i, number=2, version=version)
-                i += 4
+                
                 #print("num_components: {}".format(str(num_components)))
+                #print("entry_length: {}".format(str(entry_length)))
+                if num_components == 0 and entry_length == 3:
+                    #print("num_comp is zero, next group: {}".format(keytab[i:]))
+                    continue
+                i += 4
                 #counted octect string realm (prefixed with 16bit length, no null terminator)
                 realm_length = get_bytes_number(keytab, index=i, number=2, version=version)
                 i += 4
@@ -119,19 +133,20 @@ def parse_keytab(keytab):
                     i += 8
                     #print("flags: {}".format(str(flags)))
                 if spn in entries:
-                    entries[spn]['keys'].append({"EncType": enc_types[encryption_type], "Key": key, 'Time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))})
+                    entries[spn]['keys'].append({"EncType": enc_types[encryption_type], "Key": key, 'Time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp)), "KeyLength": key_length})
                 else:
-                    entries[spn] = {'keys': [{"EncType": enc_types[encryption_type], "Key": key, 'Time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))}]}
-                #print_entry(spn, timestamp, enc_types[encryption_type], key_length, key)
+                    entries[spn] = {'keys': [{"EncType": enc_types[encryption_type], "Key": key, 'Time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp)), "KeyLength": key_length}]}
             else:
                 i += abs(entry_length) * 2
-                print("skipping an entry")
+                #print("skipping an entry")
         except Exception as e:
             print(e)
         finally:
             entry_length = get_bytes_number(keytab, index=i, number=4, version=version)
             #print("entry_length: {}".format(str(entry_length)))
+            #print("entry: {}".format(keytab[i: i + (entry_length*2) ]))
             i += 8
+            
     print(json.dumps(entries, indent=4, sort_keys=True))
 
 if __name__ == "__main__":
@@ -142,8 +157,9 @@ if __name__ == "__main__":
         try:
             file = sys.argv[1]
             f = open(file, 'rb').read()
-            keytab = binascii.hexlify(f).decode('utf-8')
-            parse_keytab(keytab)
+            keytab = str(binascii.hexlify(f))
+            #print(keytab)
+            extract_keys(keytab)
         except Exception as e:
             print(str(e))
             usage()
